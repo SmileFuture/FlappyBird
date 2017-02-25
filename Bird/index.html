@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<canvas id="can"></canvas>
+
+<!--全局对象-->
+<script src='js/fly.js'></script>
+<!--天空对象-->
+<script src="js/sky.js"></script>
+<!--陆地对象-->
+<script src="js/land.js"></script>
+<!--管道对象-->
+<script src="js/pipe.js"></script>
+<!--birds对象-->
+<script src="js/birds.js"></script>
+
+<script>
+    var can=document.querySelector("#can");
+    can.width=800;
+    can.height=600;
+
+
+    //获取画布2d属性(练习上下文)
+    var cv=can.getContext('2d');
+    //游戏对象数组
+    var imgSrc=['birds','land','pipe1','pipe2','sky'];
+
+    function addload(callback){
+        //定义一个空对象，以便将来使用
+        var img={};
+        //定义一个变量用来监测load事件
+        var curload=0;
+
+        for(var i=0;i<imgSrc.length;i++){
+            //实例化img对象
+            var image=new Image();
+            image.src='imgs/'+imgSrc[i]+'.png';
+
+            img[imgSrc[i]]=image;
+
+            //给所有的游戏img都添加load监听
+            image.addEventListener('load',function(){
+                curload++;
+                if(curload>=imgSrc.length){
+
+                    //以后所有的内容都在这里执行
+                    //所以为了方便。我们封装成一个函数
+                    //这里就是回调函数了
+                    callback(img);
+
+                }
+            })
+
+        }
+    }
+
+    // 2 绘制小鸟 - 小鸟下落
+
+    // S = v0 * t + 1/2 * a * t * t;
+    // 路程 = 初始速度 * 经过的时间 + 1/2 * 加速度 * 经过的时间 * 经过的时间
+
+    // vt = v0 + a * t
+    // 瞬时速度 = 初始速度 + 加速度 * 经过的时间
+
+    addload(function(imgObject){
+
+        var roles = [];
+
+        //经过的时间，用渲染前的时间减去渲染后的时间，得到的时间间隔
+        var lastTime=new Date();
+
+        //设置变量，存储经过的时间
+        var delta=0;
+
+
+        //碰撞检测变量，判断游戏是否开始
+        var isGamy=true;
+
+
+        //实例化天空对象
+
+        for(var i=0;i<2;i++){
+            var sky=new Fly.sky({
+                img: imgObject["sky"],
+                x: can.width*i,
+                cv: cv
+            })
+            roles.push(sky);
+        }
+
+
+
+
+        //实例化管道
+        for(var i=0;i<6;i++){
+            var pipe=new Fly.pipe({
+                pipeUP:imgObject["pipe2"],
+                pipeDown:imgObject["pipe1"],
+                cv:cv,
+                x0:300+i*imgObject["pipe2"].width*3
+            })
+            roles.push(pipe);
+        }
+
+
+        //实例化陆地对象
+        for(var i=0;i<4;i++){
+            var land=new Fly.land({
+                img:imgObject["land"],
+                cv:cv,
+                x0:i*imgObject["land"].width,
+                y0:can.height-imgObject["land"].height
+            })
+
+            roles.push(land)
+        }
+
+
+        //实例化小鸟对象
+        var b=new Fly.Birds({
+            img: imgObject["birds"]
+        });
+
+        //绘制，渲染
+        var render=function(){
+            if(isGamy){
+
+                //清楚画布
+                cv.clearRect(0,0,can.width,can.height);
+                //开启新的路径
+                cv.beginPath();
+
+                //清楚每次绘制的路径
+                cv.clearRect(0,0,can.width,can.height);
+
+                // 保存默认的状态
+                cv.save();
+
+                //渲染时的时间
+                var curTime=new Date();
+                //存储所经用的时间t;
+                delta=curTime-lastTime;
+                //将当前帧的时间赋值给上一帧的时间;
+                lastTime=curTime;
+
+
+                //渲染陆地
+                for(var i=0;i<roles.length;i++){
+                    roles[i].render(delta);
+                }
+
+
+                //渲染小鸟
+                b.render(delta);
+
+
+                //判断小鸟是否撞到天花板
+                if(b.y0<=0){
+                    isGamy=false;
+                }
+
+                //判断小鸟是否撞到地面
+                if(b.y0>=land.y0-8){
+                    isGamy=false;
+                }
+
+                //判断小鸟是否撞到柱子
+                if(cv.isPointInPath(b.x0,b.y0)){
+                    isGamy=false;
+                }
+
+
+                cv.restore();
+                window.requestAnimationFrame(render);
+            }
+        }
+
+        window.requestAnimationFrame(render);
+
+
+        //单击小鸟事件
+        can.addEventListener('click',function(){
+            b.changSpeed(-0.3);
+        })
+    })
+
+
+
+</script>
+</body>
+</html>
